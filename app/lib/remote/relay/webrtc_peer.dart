@@ -1,0 +1,110 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:dsh_remote/dsh_remote.dart' as remote;
+import 'package:flutter_webrtc/flutter_webrtc.dart';
+
+/// [remote.RemotePeerConnector] over flutter_webrtc (libwebrtc): the
+/// DataChannel that carries DSH Remote's direct path (LAN / P2P / TURN).
+/// Data only — no microphone, camera or audio session is touched.
+Future<remote.RemotePeerConnection> flutterPeerConnector(
+  List<remote.RemoteIceServer> iceServers,
+  remote.RemotePeerHandlers handlers,
+) async {
+  final pc = await createPeerConnection({
+    'iceServers': [for (final server in iceServers) server.toJson()],
+    'sdpSemantics': 'unified-plan',
+    'iceTransportPolicy': handlers.iceTransportPolicy.name,
+  });
+  return _FlutterPeer(pc, handlers);
+}
+
+class _FlutterPeer implements remote.RemotePeerConnection {
+  _FlutterPeer(this._pc, this._handlers) {
+    _pc
+      ..onIceCandidate = (candidate) {
+        if (!_closed && candidate.candidate != null) {
+          _handlers.onIceCandidate((candidate.toMap() as Map).cast<String, Object?>());
+        }
+      }
+      ..onConnectionState = (state) {
+        if (state == RTCPeerConnectionState.RTCPeerConnectionStateFailed ||
+            state == RTCPeerConnectionState.RTCPeerConnectionStateClosed) {
+          _end('connection ${state.name}');
+        }
+      }
+      ..onIceConnectionState = (state) {
+        if (state == RTCIceConnectionState.RTCIceConnectionStateFailed ||
+            state == RTCIceConnectionState.RTCIceConnectionStateClosed) {
+          _end('ICE ${state.name}');
+        }
+      };
+  }
+
+  final RTCPeerConnection _pc;
+  final remote.RemotePeerHandlers _handlers;
+  RTCDataChannel? _channel;
+  bool _closed = false;
+
+  void _end(String reason) {
+    if (_closed) return;
+    _closed = true;
+    _handlers.onClosed(reason);
+    unawaited(_release());
+  }
+
+  @override
+  Future<String> createOffer(String channelLabel) async {
+    final channel = _channel = await _pc.createDataChannel(channelLabel, RTCDataChannelInit()..ordered = true);
+    channel
+      ..onDataChannelState = (state) {
+        if (_closed) return;
+        if (state == RTCDataChannelState.RTCDataChannelOpen) _handlers.onOpen();
+        if (state == RTCDataChannelState.RTCDataChannelClosed) _end('DataChannel closed');
+      }
+      ..onMessage = (message) {
+        if (!_closed) _handlers.onMessage(message.isBinary ? message.binary : utf8.encode(message.text));
+      };
+    final offer = await _pc.createOffer();
+    await _pc.setLocalDescription(offer);
+    return offer.sdp!;
+  }
+
+  @override
+  Future<void> setAnswer(String sdp) => _pc.setRemoteDescription(RTCSessionDescription(sdp, 'answer'));
+
+  @override
+  Future<void> addIceCandidate(Map<String, Object?> candidate) => _pc.addCandidate(
+    RTCIceCandidate(
+      candidate['candidate'] as String?,
+      candidate['sdpMid'] as String?,
+      (candidate['sdpMLineIndex'] as num?)?.toInt(),
+    ),
+  );
+
+  @override
+  Future<void> send(Uint8List data) => _channel!.send(RTCDataChannelMessage.fromBinary(data));
+
+  @override
+  Future<List<Map<String, Object?>>> stats() async => [
+    for (final report in await _pc.getStats())
+      {...report.values.cast<String, Object?>(), 'id': report.id, 'type': report.type},
+  ];
+
+  @override
+  Future<void> close() async {
+    if (_closed) return;
+    _closed = true;
+    await _release();
+  }
+
+  Future<void> _release() async {
+    try {
+      await _pc.close();
+      await _pc.dispose();
+    } catch (_) {
+      // Already gone on the platform side.
+    }
+  }
+}
