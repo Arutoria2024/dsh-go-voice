@@ -1,0 +1,16 @@
+# runtime secrets and private config
+config.json
+**/config.json
+.env
+.env.*
+*.jks
+*.keystore
+# optional voiceprint model (third-party binary, not part of this repo)
+models/
+*.onnx
+# build outputs
+build/
+.dart_tool/
+node_modules/
+*.apk
+*.tar.xz

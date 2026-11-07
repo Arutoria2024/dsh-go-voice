@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <meta name="theme-color" content="#171719">
+  <meta name="color-scheme" content="dark">
+  <title>语音对话</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #171719;
+      --fg: #eeece9;
+      --secondary: #a29fa6;
+      --muted: #73717a;
+      --line: rgba(235, 228, 240, .105);
+      --glass: rgba(255, 255, 255, .035);
+      --accent: #b7bfd6;
+      --lilac: #c3b7d2;
+      --voice-level: 0;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html { height: 100%; background: var(--bg); }
+    body {
+      margin: 0;
+      height: 100%; height: 100svh; height: 100dvh;
+      min-height: 350px;
+      color: var(--fg);
+      background:
+        radial-gradient(ellipse at 78% 5%, rgba(145, 120, 111, .085), transparent 54%),
+        radial-gradient(ellipse at 9% 80%, rgba(117, 121, 149, .055), transparent 55%),
+        linear-gradient(155deg, #1b1a1b, #171719 54%, #161618);
+      overflow: hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
+    button, input { font: inherit; }
+    button { cursor: pointer; touch-action: manipulation; }
+    button, input { -webkit-appearance: none; appearance: none; }
+    button { color: inherit; }
+    button:disabled { opacity: .38; cursor: default; }
+    button:focus-visible, input:focus-visible {
+      outline: 2px solid var(--accent); outline-offset: 4px;
+    }
+    button { transition: background .2s, border-color .2s, transform .18s, opacity .2s; }
+    button:active:not(:disabled) { transform: scale(.95); }
+    svg { display: block; flex-shrink: 0; }
+    .icon { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.65; stroke-linecap: round; stroke-linejoin: round; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+    .app {
+      width: min(100%, 760px); height: 100%; margin-inline: auto;
+      display: flex; flex-direction: column; position: relative;
+      padding: max(18px, env(safe-area-inset-top)) clamp(20px, 5.4vw, 42px) 0;
+    }
+    #top { display: flex; align-items: center; justify-content: space-between; gap: 13px; flex: 0 0 auto; }
+    .round-button {
+      width: 44px; height: 44px; border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: var(--glass); border: 1px solid var(--line); color: #b8b4bc;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.025);
+      padding: 0; flex: 0 0 auto;
+    }
+    .round-button:hover { background: rgba(255,255,255,.065); }
+    .title-capsule {
+      min-width: 0; border: 1px solid var(--line); border-radius: 32px;
+      background: rgba(255,255,255,.025); padding: 9px 22px 10px;
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.025);
+    }
+    .page-title { font-size: 12px; font-weight: 540; letter-spacing: .12em; line-height: 1.4; }
+    .route-label { color: var(--muted); font-size: 10px; line-height: 1.4; letter-spacing: .04em; white-space: nowrap; }
+    #transcriptBtn[aria-pressed="true"] { color: var(--fg); background: rgba(199,190,212,.08); border-color: rgba(199,190,212,.18); }
+    .conversation { min-height: 0; flex: 1 1 auto; display: flex; flex-direction: column; position: relative; }
+    #stage {
+      flex: 1 1 auto; min-height: 200px; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; text-align: center; padding: 32px 0 28px;
+    }
+    .mark-space { width: 190px; height: 150px; display: grid; place-items: center; position: relative; margin-bottom: 28px; }
+    .mark-space::after {
+      content: ""; position: absolute; bottom: 3px; left: 73px; right: 73px;
+      height: 1px; background: linear-gradient(90deg, transparent, rgba(201,190,215,.22), transparent);
+    }
+    .voice-mark {
+      width: 164px; height: 116px; overflow: visible;
+      color: #bab9c7; opacity: .82;
+      transform: scale(calc(1 + var(--voice-level) * .055));
+      transition: transform 130ms linear, color .6s, opacity .6s;
+    }
+    .tide { transform-origin: 82px 58px; }
+    .tide path { fill: none; stroke-linecap: round; stroke-width: 2.1; }
+    .tide-a { animation: tide-drift 6s steps(120, end) infinite; }
+    .tide-b { animation: tide-return 6s steps(120, end) infinite; }
+    @keyframes tide-drift { 0%,100% { transform: translateY(2px) rotate(-2deg); opacity: .78; } 50% { transform: translateY(-2px) rotate(1deg); opacity: 1; } }
+    @keyframes tide-return { 0%,100% { transform: translateY(-1px) rotate(1deg); opacity: 1; } 50% { transform: translateY(2px) rotate(-1deg); opacity: .65; } }
+    .stage-eyebrow { display: flex; align-items: center; gap: 8px; margin-bottom: 13px; color: var(--muted); font-size: 10px; font-weight: 500; letter-spacing: .19em; }
+    .stage-eyebrow::before, .stage-eyebrow::after { content: ""; height: 1px; width: 14px; background: rgba(186,180,194,.17); }
+    #stageTitle { margin: 0; font-size: clamp(24px, 6.2vw, 32px); font-weight: 450; line-height: 1.4; letter-spacing: .025em; }
+    #micHint { color: var(--secondary); font-size: 12px; line-height: 1.8; margin: 12px 0 0; letter-spacing: .025em; }
+    .state-copy > span { display: none; }
+    body[data-state="idle"] .state-copy > [data-for="idle"],
+    body[data-state="connecting"] .state-copy > [data-for="connecting"],
+    body[data-state="listening"] .state-copy > [data-for="listening"],
+    body[data-state="recognizing"] .state-copy > [data-for="recognizing"],
+    body[data-state="generating"] .state-copy > [data-for="generating"],
+    body[data-state="buffering"] .state-copy > [data-for="buffering"],
+    body[data-state="speaking"] .state-copy > [data-for="speaking"],
+    body[data-state="muted"] .state-copy > [data-for="muted"],
+    body[data-state="error"] .state-copy > [data-for="error"],
+    body[data-state="ended"] .state-copy > [data-for="ended"] { display: inline; }
+    body[data-state="listening"] .voice-mark { color: #c2c8d8; opacity: 1; }
+    body[data-state="speaking"] .voice-mark { color: #c9bfd8; opacity: 1; }
+    body[data-state="speaking"] .tide-a { animation-duration: 2.8s; animation-timing-function: steps(56,end); }
+    body[data-state="speaking"] .tide-b { animation-duration: 3.2s; animation-timing-function: steps(64,end); }
+    body:is([data-state="connecting"], [data-state="recognizing"], [data-state="generating"], [data-state="buffering"]) .voice-mark { opacity: .7; }
+    body:is([data-state="muted"], [data-state="ended"]) .voice-mark { opacity: .35; color: #9b97a3; }
+    body:is([data-state="muted"], [data-state="ended"]) .tide { animation-play-state: paused; }
+    body[data-state="error"] .voice-mark { color: #c79d99; opacity: .55; }
+    #errorRetry {
+      display: none; margin-top: 18px; border: 1px solid var(--line); border-radius: 30px;
+      padding: 9px 15px; background: var(--glass); color: #c9c2c9; font-size: 12px; align-items: center; gap: 7px;
+    }
+    #errorRetry .icon { width: 15px; height: 15px; }
+    body[data-state="error"] #errorRetry { display: inline-flex; }
+    #log {
+      flex: 1 1 47%; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+      display: flex; flex-direction: column; gap: 22px;
+      padding: 18px 4px 20px; scrollbar-width: thin; scrollbar-color: #3c393f transparent;
+      scroll-behavior: smooth; overflow-wrap: anywhere;
+      -webkit-mask-image: linear-gradient(to bottom, transparent, #000 16px, #000 calc(100% - 3px), transparent);
+      mask-image: linear-gradient(to bottom, transparent, #000 16px, #000 calc(100% - 3px), transparent);
+    }
+    #log::before { content: ""; flex: 1 0 0px; }
+    #log:empty { display: none; }
+    .line { flex: 0 0 auto; white-space: pre-wrap; word-break: break-word; }
+    .line.user { max-width: 86%; align-self: flex-end; text-align: right; color: #a9a4af; font-size: 15px; line-height: 1.8; padding: 10px 16px; border: 1px solid rgba(218,210,231,.06); background: rgba(218,210,231,.035); border-radius: 20px 20px 5px 20px; }
+    .line.ai { max-width: 100%; align-self: flex-start; color: #e6e2e8; font-size: clamp(20px, 5.6vw, 28px); line-height: 1.65; font-weight: 420; letter-spacing: .015em; }
+    .conversation:has(#log:not(:empty)) #stage { flex: 0 1 34%; min-height: 154px; padding: 18px 0 8px; }
+    .conversation:has(#log:not(:empty)) .mark-space { height: 80px; width: 130px; margin-bottom: 8px; }
+    .conversation:has(#log:not(:empty)) .voice-mark { width: 112px; height: 80px; }
+    .conversation:has(#log:not(:empty)) .mark-space::after,
+    .conversation:has(#log:not(:empty)) .stage-eyebrow { display: none; }
+    .conversation:has(#log:not(:empty)) #stageTitle { font-size: 17px; color: #bdb7c3; }
+    .conversation:has(#log:not(:empty)) #micHint { display: none; }
+    body[data-transcript="hidden"] #log { display: none; }
+    body[data-transcript="hidden"] .conversation #stage { flex: 1 1 auto; min-height: 200px; }
+    body[data-transcript="hidden"] .conversation .mark-space { width: 190px; height: 150px; margin-bottom: 28px; }
+    body[data-transcript="hidden"] .conversation .voice-mark { width: 164px; height: 116px; }
+    body[data-transcript="hidden"] .conversation #stageTitle { font-size: clamp(24px, 6.2vw, 32px); color: var(--fg); }
+    body[data-transcript="hidden"] .conversation #micHint { display: block; }
+    .call-footer { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; padding-bottom: max(24px, calc(10px + var(--safe-bottom))); }
+    #voiceChip {
+      display: inline-flex; align-items: center; gap: 9px; min-height: 32px;
+      padding: 7px 13px; border-radius: 24px; border: 1px solid var(--line);
+      background: rgba(255,255,255,.027); color: #b9b4bf; font-size: 11px; line-height: 1.3;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.025);
+    }
+    #voiceChip .icon { width: 13px; height: 13px; color: var(--lilac); stroke-width: 1.5; }
+    #who { color: #d6d1d9; font-weight: 500; }
+    .chip-separator { width: 2px; height: 2px; border-radius: 50%; background: #76707e; }
+    .connection-row { margin: 15px 0 17px; min-height: 18px; display: flex; align-items: center; justify-content: center; gap: 10px; max-width: 100%; color: var(--muted); font-size: 10px; letter-spacing: .035em; }
+    #connectionBadge { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+    .connection-dot { height: 4px; width: 4px; border-radius: 50%; background: #827e89; transition: background .3s; }
+    #status { max-width: 230px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; color: var(--secondary); }
+    #net { color: var(--muted); font-size: 10px; }
+    #sessionTime { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; color: #aaa3b1; }
+    .status-divider { height: 9px; width: 1px; background: var(--line); }
+    body:is([data-state="listening"], [data-state="recognizing"], [data-state="generating"], [data-state="buffering"], [data-state="speaking"]) .connection-dot { background: #b6c1ca; }
+    body[data-state="error"] .connection-dot { background: #c59891; }
+    #dock {
+      display: flex; align-items: center; justify-content: center; gap: 24px;
+      padding: 11px 19px 9px; width: 292px; max-width: 100%; min-height: 98px;
+      border: 1px solid rgba(233,225,240,.105); border-radius: 36px;
+      background: linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.025));
+      box-shadow: 0 8px 32px rgba(0,0,0,.12), inset 0 1px 0 rgba(255,255,255,.025);
+    }
+    @supports (backdrop-filter: blur(8px)) { #dock, .title-capsule { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); } }
+    .dock-action { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 7px; }
+    .dock-action > .action-caption { color: #96909d; font-size: 10px; line-height: 1; letter-spacing: .025em; }
+    .dock-button { width: 44px; height: 44px; border-radius: 50%; border: 1px solid rgba(231,224,240,.075); background: rgba(255,255,255,.035); padding: 0; display: grid; place-items: center; color: #beb7c5; }
+    .dock-button:hover { background: rgba(255,255,255,.07); }
+    #talk {
+      position: relative; width: 90px; height: 52px; border-radius: 24px; padding: 0;
+      border: 1px solid rgba(255,255,255,.55); background: #e9e4df; color: #353136;
+      display: grid; place-items: center; flex: 0 0 auto;
+      box-shadow: 0 3px 12px rgba(0,0,0,.12), inset 0 1px 0 rgba(255,255,255,.7);
+    }
+    #talk:hover { background: #f5f0ea; }
+    #talk .core { position: relative; display: flex; align-items: center; justify-content: center; }
+    #talk .icon { width: 23px; height: 23px; stroke-width: 1.7; }
+    #talk .ring { pointer-events: none; position: absolute; inset: -4px; border: 1px solid rgba(210,204,221,.17); border-radius: 28px; opacity: 0; transition: opacity .3s; }
+    #talk:is(.listening, .speaking, .thinking) .ring,
+    body:is([data-state="listening"], [data-state="speaking"]) #talk .ring { opacity: 1; }
+    .icon-mic-off, .icon-loader { display: none; }
+    body[data-state="muted"] #talk,
+    #talk[data-state="muted"] { background: #3e3741; color: #d5c3d5; border-color: rgba(225,196,225,.15); box-shadow: inset 0 1px 0 rgba(255,255,255,.03); }
+    body[data-state="muted"] #talk .icon-mic,
+    #talk[data-state="muted"] .icon-mic { display: none; }
+    body[data-state="muted"] #talk .icon-mic-off,
+    #talk[data-state="muted"] .icon-mic-off { display: block; }
+    body[data-state="connecting"] #talk .icon-mic,
+    #talk[data-state="connecting"] .icon-mic { display: none; }
+    body[data-state="connecting"] #talk .icon-loader,
+    #talk[data-state="connecting"] .icon-loader { display: block; animation: loader-turn 1.5s steps(30,end) infinite; }
+    @keyframes loader-turn { to { transform: rotate(360deg); } }
+    #hangup { background: rgba(184,117,112,.07); border-color: rgba(210,149,143,.09); color: #c99c97; }
+    #hangup .icon { width: 22px; height: 22px; }
+    #hangup:hover { background: rgba(184,117,112,.14); }
+    #wave { display: flex; align-items: center; justify-content: center; gap: 3px; height: 14px; width: 28px; }
+    #wave:empty { display: none; }
+    #wave i { display: block; flex: 0 0 2px; width: 2px; height: 3px; max-height: 13px; border-radius: 2px; background: #a5a0b1 !important; transition: height .12s linear; }
+    #type { display: none; width: 100%; align-items: center; gap: 8px; margin: 0 0 15px; }
+    #type.show { display: flex; }
+    #txt { min-width: 0; width: 100%; flex: 1; height: 48px; border: 1px solid var(--line); border-radius: 24px; background: rgba(255,255,255,.045); color: var(--fg); padding: 0 18px; font-size: 16px; outline: none; }
+    #txt::placeholder { color: #77717e; font-size: 13px; }
+    #txt:focus { border-color: rgba(188,184,213,.38); background: rgba(255,255,255,.06); }
+    #send { width: 46px; height: 46px; display: grid; place-items: center; border-radius: 50%; border: 1px solid rgba(238,232,245,.25); background: #d3cdd8; color: #302c34; flex-shrink: 0; padding: 0; }
+    .input-hint { font-size: 10px; line-height: 1.5; color: var(--muted); margin: 12px 0 0; letter-spacing: .04em; }
+    .app:has(#type.show) #kbBtn { background: rgba(189,178,208,.12); color: #e0d6e9; border-color: rgba(189,178,208,.2); }
+    @media (min-width: 700px) {
+      .app { padding-top: max(30px, env(safe-area-inset-top)); }
+      #stage { padding-top: 50px; }
+      .mark-space { margin-bottom: 38px; }
+      #log { padding-inline: 32px; }
+      .call-footer { padding-bottom: max(30px, calc(15px + var(--safe-bottom))); }
+    }
+    @media (max-width: 350px) {
+      .app { padding-inline: 15px; }
+      .title-capsule { padding-inline: 15px; }
+      .round-button { width: 40px; height: 40px; }
+      #top { gap: 9px; }
+      #dock { width: 272px; gap: 20px; }
+      #status { max-width: 155px; }
+      #net { display: none; }
+    }
+    @media (max-height: 700px) {
+      #stage { min-height: 160px; padding-block: 16px; }
+      .mark-space { height: 108px; margin-bottom: 16px; }
+      .voice-mark { width: 140px; height: 100px; }
+      .stage-eyebrow { margin-bottom: 8px; }
+      #micHint { margin-top: 8px; }
+      .connection-row { margin-block: 11px 13px; }
+      .input-hint { margin-top: 9px; }
+      .conversation:has(#log:not(:empty)) #stage { min-height: 115px; }
+      .conversation:has(#log:not(:empty)) .mark-space { height: 60px; margin-bottom: 4px; }
+      .conversation:has(#log:not(:empty)) .voice-mark { height: 60px; }
+    }
+    @media (max-height: 530px) {
+      .app { padding-top: max(10px, env(safe-area-inset-top)); }
+      #top .round-button { width: 38px; height: 38px; }
+      .title-capsule { padding-block: 6px; }
+      .title-capsule .route-label { display: none; }
+      #stage, body[data-transcript="hidden"] .conversation #stage { min-height: 78px; padding-block: 10px; flex-direction: row; gap: 17px; }
+      .stage-eyebrow, #micHint, body[data-transcript="hidden"] .conversation #micHint { display: none; }
+      .mark-space, body[data-transcript="hidden"] .conversation .mark-space { width: 68px; height: 60px; margin: 0; }
+      .voice-mark, body[data-transcript="hidden"] .conversation .voice-mark { width: 68px; height: 56px; }
+      .mark-space::after { display: none; }
+      #stageTitle, body[data-transcript="hidden"] .conversation #stageTitle { font-size: 18px; }
+      .conversation:has(#log:not(:empty)) #stage { display: none; }
+      .connection-row { margin-block: 7px 9px; }
+      #voiceChip { min-height: 27px; padding-block: 5px; }
+      #dock { min-height: 77px; padding-block: 8px; }
+      #talk { height: 44px; }
+      .dock-action { gap: 5px; }
+      .dock-button { width: 38px; height: 38px; }
+      .input-hint { display: none; }
+      .call-footer { padding-bottom: max(10px, var(--safe-bottom)); }
+      #type { margin-bottom: 9px; }
+      .line.ai { font-size: 20px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+      .voice-mark { transform: none; }
+    }
+  
+    .line-label { display:block; color:var(--muted); font-size:10px; letter-spacing:.08em; margin-bottom:7px; }
+    .line-content { display:block; }
+    #talk .core svg { width:23px; height:23px; fill:none; stroke:currentColor; stroke-width:1.65; stroke-linecap:round; stroke-linejoin:round; }
+    .voice-options { display:flex; gap:10px; align-items:center; }
+    #speakerBtn { width:32px; height:32px; color:var(--secondary); }
+    #speakerBtn .icon { width:15px; height:15px; }
+    #speakerBtn[aria-pressed=true] { color:#c99c97; border-color:rgba(210,149,143,.2); }
+    #speakerBtn .off-mark { display:none; }
+    #speakerBtn[aria-pressed=true] .off-mark { display:block; }
+    #speakerBtn[aria-pressed=true] .sound-mark { display:none; }
+    #liveCaption { display:none; max-width:100%; font-size:clamp(21px,5.8vw,29px); line-height:1.7; color:var(--fg); margin:24px 0 0; overflow-wrap:anywhere; }
+    body[data-transcript=hidden].has-caption #liveCaption { display:block; }
+    #status { max-width:180px; }
+    .connection-row { gap:7px; flex-wrap:wrap; }
+    [hidden] { display:none !important; }
+    @media(max-height:530px){ #liveCaption { margin-top:6px; font-size:17px; max-height:15vh; overflow:auto; } .input-hint{display:none} .call-footer{padding-bottom:max(10px,var(--safe-bottom));} }
+  
+    /* Compact icon-only composer: the call control lives inside the input. */
+    #dock { width:100%; max-width:520px; min-height:0; gap:10px; padding:0; border:0; background:none; box-shadow:none; backdrop-filter:none; }
+    #type, #type.show { display:flex; min-width:0; flex:1; margin:0; padding:7px; gap:5px; border:1px solid rgba(233,225,240,.13); border-radius:32px; background:linear-gradient(135deg,rgba(255,255,255,.075),rgba(255,255,255,.035)); box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 8px 24px #00000012; }
+    #txt { width:0; min-width:0; height:42px; padding:0 5px; border:0; border-radius:0; background:transparent; font-size:15px; }
+    #txt:focus { background:transparent; border:0; outline:none; }
+    #kbBtn { width:36px; height:40px; border:0; background:none; flex:none; color:#bab5c2; }
+    #kbBtn .icon { width:19px; height:19px; }
+    #talk { width:42px; height:42px; border-radius:50%; flex:none; border:1px solid #bdc7e638; background:#bbc7e9; color:#252a36; box-shadow:inset 0 1px 0 #ffffff40; }
+    #talk:hover { background:#ccd5ed; }
+    body[data-connected=true] #talk { background:#d6d1db14; color:#dbd5e0; border-color:#e9e2f01f; box-shadow:none; }
+    #talk[aria-pressed=true] { color:#c79e9a!important; background:#8f5e591a!important; }
+    #send { width:36px; height:36px; flex:none; background:#d3cdd8; color:#302c34; }
+    #hangup { width:48px; height:48px; flex:none; color:#39353d; background:#ece7e1; border:1px solid #ffffff44; }
+    #hangup:disabled { display:none; }
+    .connection-row { margin:16px 0; }
+    .voice-options { opacity:.8; }
+    @media(max-width:350px){ #dock{gap:7px} #type{padding:5px} #txt{font-size:14px} #kbBtn{width:28px} #talk{width:38px;height:38px} #hangup{width:44px;height:44px} }
+  </style>
+</head>
+<body data-state="idle" data-transcript="visible">
+  <!--
+    Integration contract (no application script in this file):
+    1. body.dataset.state: idle | connecting | listening | recognizing | generating |
+       buffering | speaking | muted | error | ended. The state-copy spans work without JS.
+       Parent may replace #stageTitle / #micHint textContent instead if desired.
+    2. Set --voice-level on body (0..1); throttle visual writes to <=24fps. The tide's
+       autonomous transform animations use 20 steps/sec; no animated filters or canvas.
+    3. #talk is a real button; .core and .ring are legacy-compatible. body state or
+       talk.dataset.state controls built-in icons; replacing .core with SVG is supported.
+       Update accessible name + #muteLabel when start/mute/unmute semantics change.
+    4. #transcriptBtn toggles body.dataset.transcript: visible / hidden and aria-pressed.
+       #log remains mounted so incoming .line.user / .line.ai history is preserved.
+    5. #type.show opens composer. #txt and #send preserve legacy text submission ids.
+       #backBtn, #errorRetry, #hangup need real handlers from the integrating agent.
+    6. #voiceChip is read-only configuration, not a selector. #who is persona name.
+       #net is short connection label; #status is short user-facing activity/error.
+       #sessionTime starts 00:00; update only from actual session elapsed time.
+    7. #wave is initially empty, compatible with the original five injected i bars.
+       Prefer passing level to --voice-level instead of inline colorful bar styles.
+    8. Latest scope: no EQ controls/settings panel. Keep fixed DSP in business JS only.
+  -->
+  <div class="app">
+    <header id="top">
+      <button id="backBtn" class="round-button" type="button" aria-label="返回对话" title="返回对话">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg>
+      </button>
+      <div class="title-capsule">
+        <span class="page-title">语音对话</span>
+        <span class="route-label">本机 · 云端音色</span>
+      </div>
+      <button id="transcriptBtn" class="round-button" type="button" aria-label="显示或隐藏对话字幕" title="对话字幕" aria-pressed="true" aria-controls="log">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5h14a1.5 1.5 0 0 1 1.5 1.5v10a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 17V7A1.5 1.5 0 0 1 5 5.5Z"/><path d="M7.5 10h9m-9 4h5m3 0h1"/></svg>
+      </button>
+    </header>
+
+    <main class="conversation" aria-label="语音对话">
+      <section id="stage" aria-label="通话状态">
+        <div class="mark-space" aria-hidden="true">
+          <!-- 声汐: two interleaving line fields, not an orb or a simulated audio meter. -->
+          <svg class="voice-mark" viewBox="0 0 164 116" fill="none">
+            <defs>
+              <linearGradient id="tideInk" x1="20" y1="25" x2="143" y2="91" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#aeb9ca"/><stop offset=".45" stop-color="#e1dbe1"/><stop offset="1" stop-color="#a99bbd"/>
+              </linearGradient>
+            </defs>
+            <g class="tide tide-a" stroke="url(#tideInk)">
+              <path opacity=".36" d="M22 66C31 55 34 33 50 32c22-2 27 49 49 50 15 1 26-14 43-25"/>
+              <path opacity=".55" d="M23 59c12-17 17-35 31-33 23 3 25 57 48 58 15 1 26-19 39-33"/>
+              <path opacity=".8" d="M26 51c13-19 19-31 33-26 21 9 24 60 46 58 14-1 23-23 33-37"/>
+              <path d="M31 43c12-17 20-24 33-17 20 12 24 58 44 54 12-2 20-24 26-38"/>
+            </g>
+            <g class="tide tide-b" stroke="url(#tideInk)">
+              <path opacity=".88" d="M23 66c13 15 21 24 34 19 21-9 26-59 48-58 14 0 23 17 33 31"/>
+              <path opacity=".66" d="M27 72c14 15 22 18 35 11 20-12 24-58 44-54 14 3 21 22 29 36"/>
+              <path opacity=".4" d="M34 79c12 11 21 12 33 3 19-15 22-53 40-49 13 4 19 24 25 36"/>
+            </g>
+          </svg>
+        </div>
+        <div class="stage-copy">
+          <div class="stage-eyebrow" aria-hidden="true">一段自在的对话</div>
+          <h1 id="stageTitle" class="state-copy">
+            <span data-for="idle">想聊点什么？</span>
+            <span data-for="connecting">正在连接</span>
+            <span data-for="listening">嗯，我在听。</span>
+            <span data-for="recognizing">听见你了。</span>
+            <span data-for="generating">让我想一想。</span>
+            <span data-for="buffering">声音马上就来。</span>
+            <span data-for="speaking">说给你听。</span>
+            <span data-for="muted">安静陪你一会儿。</span>
+            <span data-for="error">连接暂时中断</span>
+            <span data-for="ended">下次，接着聊。</span>
+          </h1>
+          <p id="micHint" class="state-copy">
+            <span data-for="idle">点下麦克风，随时开口。</span>
+            <span data-for="connecting">正在准备麦克风与语音连接</span>
+            <span data-for="listening">自然说话就好，不必按住按钮。</span>
+            <span data-for="recognizing">正在整理你刚才说的话</span>
+            <span data-for="generating">正在准备回复</span>
+            <span data-for="buffering">云端语音正在准备中</span>
+            <span data-for="speaking">想说话时，直接开口。</span>
+            <span data-for="muted">麦克风已静音，点一下继续。</span>
+            <span data-for="error">检查网络后，重新连接。</span>
+            <span data-for="ended">这段对话的字幕会留在这里。</span>
+          </p>
+          <button id="errorRetry" type="button">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 10a7.5 7.5 0 1 0-1.8 7.2M19.5 4.5V10H14"/></svg>
+            重新连接
+          </button>
+        </div>
+        <div id="liveCaption" aria-live="polite"></div>
+      </section>
+      <!-- Append real history only. No seeded conversation or fake live captions. -->
+      <div id="log" role="log" aria-label="对话字幕与历史" aria-live="polite" aria-relevant="additions text" tabindex="0"></div>
+    </main>
+
+    <footer class="call-footer">
+      <div class="voice-options"><div id="voiceChip" aria-label="当前音色；语音合成">
+        <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 7v2m3-5v8m3-9v10m3-8v6m3-4v2"/></svg>
+        <span id="who">助手</span><span class="chip-separator" aria-hidden="true"></span><span>偶像</span>
+      </div>
+      <button id="speakerBtn" class="round-button" type="button" aria-label="静音扬声器" aria-pressed="false" title="扬声器">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4 5 9H2v6h3l6 5Z"/><path class="sound-mark" d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/><path class="off-mark" d="m16 9 6 6m0-6-6 6"/></svg>
+      </button></div>
+      <div class="connection-row">
+        <span id="connectionBadge"><span class="connection-dot" aria-hidden="true"></span><span id="net">就绪</span></span>
+        <span class="status-divider" aria-hidden="true"></span>
+        <span id="status" role="status" aria-live="polite">点麦克风开始</span>
+        <span id="wave" aria-hidden="true"></span>
+        <span class="status-divider" aria-hidden="true"></span>
+        <time id="sessionTime" aria-label="通话时长">00:00</time>
+      </div>
+      <div id="dock" role="group" aria-label="语音与文字输入">
+        <div id="type" role="group" aria-label="文字输入">
+          <button id="kbBtn" class="dock-button" type="button" aria-label="输入文字" title="输入文字" aria-controls="txt"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16v11H4zM7 10h.1m3 0h.1m3 0h.1m3 0h.1M8 15h8"/></svg></button>
+          <label for="txt" class="sr-only">发送文字</label>
+          <input id="txt" type="text" placeholder="想说什么…" autocomplete="off" enterkeyhint="send">
+          <button id="send" type="button" aria-label="发送文字" title="发送文字" hidden><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5m-6 6 6-6 6 6"/></svg></button>
+          <button id="talk" class="orb" type="button" aria-label="开始语音对话" title="开始语音对话"><span class="core" aria-hidden="true"></span></button>
+        </div>
+        <button id="hangup" class="dock-button" type="button" aria-label="结束通话" title="结束通话" disabled><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+      </div>
+    </footer>
+  </div>
+  <script src="/client.js" defer></script>
+</body>
+</html>
