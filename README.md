@@ -52,7 +52,7 @@
   - `DSH-Go-voice-open-source-full-20261107.tar.gz`：完整可编译源码
   - `dsh-go-voice-open-source-20261107.tar.gz`：独立语音模块源码
 
-本仓库是 **源码模块**，Release 里的 APK 是公开测试包。请先准备 [DSH-Go](https://github.com/ccch1mneyyy/dsh-go) 源码，再按 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) 和 [patches/INTEGRATION.md](patches/INTEGRATION.md) 接入：
+本仓库包含**完整魔改源码**（`app/`、`packages/`、`runtime/`、`tooling/`）和语音模块；Release 里的 APK 是公开测试包。接入/构建请先准备 [DSH-Go](https://github.com/ccch1mneyyy/dsh-go) 对应版本，再按 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) 和 [patches/INTEGRATION.md](patches/INTEGRATION.md)：
 
 1. `runtime/voicecall/` → DSH-Go 的 `runtime/voicecall/`
 2. `app/lib/` / `app/android/.../voice/` → 对应路径
