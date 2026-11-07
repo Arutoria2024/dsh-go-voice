@@ -45,7 +45,14 @@
 
 ## 下载与安装
 
-本仓库是 **源码模块**，不发布独立 APK。请先准备 [DSH-Go](https://github.com/ccch1mneyyy/dsh-go) 源码，再按 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) 和 [patches/INTEGRATION.md](patches/INTEGRATION.md) 接入：
+## 下载
+
+- [GitHub Releases v1.0.0](https://github.com/Arutoria2024/dsh-go-voice/releases/tag/v1.0.0)
+  - `DSH-Go-voice-open-arm64.apk`：公开测试 APK（arm64，**未内置任何 key**，首次使用请在语音设置里配置 ASR/TTS）
+  - `DSH-Go-voice-open-source-full-20261107.tar.gz`：完整可编译源码
+  - `dsh-go-voice-open-source-20261107.tar.gz`：独立语音模块源码
+
+本仓库是 **源码模块**，Release 里的 APK 是公开测试包。请先准备 [DSH-Go](https://github.com/ccch1mneyyy/dsh-go) 源码，再按 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) 和 [patches/INTEGRATION.md](patches/INTEGRATION.md) 接入：
 
 1. `runtime/voicecall/` → DSH-Go 的 `runtime/voicecall/`
 2. `app/lib/` / `app/android/.../voice/` → 对应路径
