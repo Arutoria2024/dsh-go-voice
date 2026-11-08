@@ -121,7 +121,7 @@ Content-Type: application/json
 感谢 DSH-Go 作者 [@ccch1mneyyy](https://github.com/ccch1mneyyy) 提供优秀的手机端 DSH 客户端；
 感谢 DeepSeek Harness、Flutter、webview_flutter 及 SiliconFlow 等开源/开放服务。
 
-本项目的占位立绘与提示音为仓库自生成素材，不包含任何第三方角色原画或录屏音频。
+立绘由项目自带；如需再分发，请自行确认素材授权与署名要求。提示音为仓库自生成素材。
 
 ## 声明
 
